@@ -1242,6 +1242,16 @@
         $('step1text').textContent = source === 'solana' ? 'Prepare Transaction' : 'Approve USDC';
         $('step2text').textContent = 'Burn USDC on ' + getChainName(source);
         $('step4text').textContent = 'Mint USDC on ' + getChainName(dest);
+        
+        // Update connect button text based on source chain
+        const connectBtn = $('connectWalletBtn');
+        if (source === 'solana') {
+            connectBtn.textContent = '🟣 Connect Phantom/Solflare';
+        } else {
+            connectBtn.textContent = '🔷 Connect MetaMask/Rabby';
+        }
+        
+        console.log('Network UI updated - Direction:', bridgeDirection, '| Source:', source, '| Dest:', dest);
     }
     
     async function updateBalanceForDirection() {
@@ -1370,10 +1380,16 @@
             // Check if source is Solana
             const source = bridgeDirection.split('-to-')[0];
             
+            console.log('=== CONNECT WALLET ===');
+            console.log('Current bridgeDirection:', bridgeDirection);
+            console.log('Source chain:', source);
+            
             if (source === 'solana') {
+                console.log('Connecting SOLANA wallet...');
                 // Connect Solana wallet (Phantom or Solflare)
                 await connectSolanaWallet();
             } else {
+                console.log('Connecting EVM wallet...');
                 // Connect EVM wallet (MetaMask/Rabby)
                 await connectEVMWallet();
             }
@@ -1384,9 +1400,13 @@
     }
     
     async function connectSolanaWallet() {
-        // Check for Phantom or Solflare
+        // Check for Phantom or Solflare - be specific about Solana provider
         const phantom = window.phantom?.solana;
         const solflare = window.solflare;
+        
+        console.log('Attempting Solana wallet connection...');
+        console.log('Phantom available:', !!phantom);
+        console.log('Solflare available:', !!solflare);
         
         if (!phantom && !solflare) {
             alert('Please install Phantom or Solflare wallet!\n\nPhantom: https://phantom.app\nSolflare: https://solflare.com');
@@ -1394,31 +1414,38 @@
         }
         
         try {
-            // Prefer Phantom
+            // Prefer Phantom for Solana
             if (phantom && phantom.isPhantom) {
-                console.log('Connecting to Phantom...');
+                console.log('Connecting to Phantom Solana...');
                 solanaWallet = phantom;
-                const resp = await phantom.connect();
+                
+                // Connect specifically to Solana - not EVM
+                const resp = await phantom.connect({ onlyIfTrusted: false });
                 solanaPublicKey = resp.publicKey;
+                console.log('Phantom connected:', solanaPublicKey.toString());
+                
             } else if (solflare && solflare.isSolflare) {
                 console.log('Connecting to Solflare...');
                 solanaWallet = solflare;
                 await solflare.connect();
                 solanaPublicKey = solflare.publicKey;
+                console.log('Solflare connected:', solanaPublicKey.toString());
             }
             
             if (!solanaPublicKey) {
                 throw new Error('Failed to get Solana public key');
             }
             
-            // Initialize Solana connection
+            // Initialize Solana connection to Devnet
             solanaConnection = new solanaWeb3.Connection(CONFIG.SOLANA.RPC, 'confirmed');
+            console.log('Solana connection established to:', CONFIG.SOLANA.RPC);
             
             // Get USDC balance on Solana
             let balance = 0;
             try {
                 const usdcMint = new solanaWeb3.PublicKey(CONFIG.SOLANA.USDC);
                 const ata = await getAssociatedTokenAddress(usdcMint, solanaPublicKey);
+                console.log('USDC ATA:', ata.toString());
                 const tokenAccount = await solanaConnection.getTokenAccountBalance(ata);
                 balance = tokenAccount.value.uiAmount || 0;
             } catch (e) {
@@ -1440,7 +1467,7 @@
             
             $('bridgeForm').classList.remove('hidden');
             
-            console.log('Solana wallet connected:', solanaPublicKey.toString());
+            console.log('✅ Solana wallet connected successfully:', solanaPublicKey.toString());
             
         } catch (e) {
             console.error('Solana wallet error:', e);
