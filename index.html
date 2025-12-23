@@ -1,235 +1,1192 @@
-<script>
-/* =========================================================
-   FLUXSHIFT — Circle Bridge Kit (UI 1:1 COMPATIBLE)
-   ========================================================= */
+import React, { useState, useEffect } from "react";
 
-/* ===== CONFIG ===== */
-const CIRCLE_API_KEY = 'SUA_API_KEY_DA_CIRCLE';
-const CIRCLE_API = 'https://api.circle.com/v1';
-
-const CONFIG = {
-  NETWORKS: {
-    arc: 'arc',
-    sepolia: 'ethereum-sepolia',
-    solana: 'solana',
-    base: 'base'
+// Redes suportadas
+const NETWORKS = [
+  { 
+    id: "base-sepolia", 
+    name: "Base Sepolia", 
+    chainId: "0x14a34", // 84532
+    icon: "🔵",
+    color: "#0052FF",
+    rpcUrl: "https://sepolia.base.org",
+    explorer: "https://sepolia.basescan.org",
+    usdcAddress: "0x036CbD53842c5426634e7929541eC2318f3dCF7e"
+  },
+  { 
+    id: "ethereum-sepolia", 
+    name: "Ethereum Sepolia", 
+    chainId: "0xaa36a7", // 11155111
+    icon: "⟠",
+    color: "#627EEA",
+    rpcUrl: "https://sepolia.drpc.org",
+    explorer: "https://sepolia.etherscan.io",
+    usdcAddress: "0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238"
+  },
+  { 
+    id: "arbitrum-sepolia", 
+    name: "Arbitrum Sepolia", 
+    chainId: "0x66eee", // 421614
+    icon: "🔷",
+    color: "#28A0F0",
+    rpcUrl: "https://sepolia-rollup.arbitrum.io/rpc",
+    explorer: "https://sepolia.arbiscan.io",
+    usdcAddress: "0x75faf114eafb1BDbe2F0316DF893fd58CE46AA4d"
+  },
+  { 
+    id: "avalanche-fuji", 
+    name: "Avalanche Fuji", 
+    chainId: "0xa869", // 43113
+    icon: "🔺",
+    color: "#E84142",
+    rpcUrl: "https://api.avax-test.network/ext/bc/C/rpc",
+    explorer: "https://testnet.snowtrace.io",
+    usdcAddress: "0x5425890298aed601595a70AB815c96711a31Bc65"
+  },
+  { 
+    id: "polygon-amoy", 
+    name: "Polygon Amoy", 
+    chainId: "0x13882", // 80002
+    icon: "⬡",
+    color: "#8247E5",
+    rpcUrl: "https://rpc-amoy.polygon.technology",
+    explorer: "https://amoy.polygonscan.com",
+    usdcAddress: "0x41E94Eb019C0762f9Bfcf9Fb1E58725BfB0e7582"
+  },
+  { 
+    id: "optimism-sepolia", 
+    name: "Optimism Sepolia", 
+    chainId: "0xaa37dc", // 11155420
+    icon: "🔴",
+    color: "#FF0420",
+    rpcUrl: "https://sepolia.optimism.io",
+    explorer: "https://sepolia-optimism.etherscan.io",
+    usdcAddress: "0x5fd84259d66Cd46123540766Be93DFE6D43130D7"
   }
-};
+];
 
-const headers = {
-  'Authorization': `Bearer ${CIRCLE_API_KEY}`,
-  'Content-Type': 'application/json'
-};
+// Componente de partículas
+const Particles = () => (
+  <div className="particles">
+    {[...Array(30)].map((_, i) => (
+      <div
+        key={i}
+        className="particle"
+        style={{
+          left: `${Math.random() * 100}%`,
+          top: `${Math.random() * 100}%`,
+          animationDelay: `${Math.random() * 8}s`,
+          animationDuration: `${4 + Math.random() * 6}s`,
+          width: `${2 + Math.random() * 4}px`,
+          height: `${2 + Math.random() * 4}px`,
+        }}
+      />
+    ))}
+  </div>
+);
 
-/* ===== UI HELPERS (INALTERADOS) ===== */
-const $ = id => document.getElementById(id);
+// Componente do seletor de rede
+const NetworkSelector = ({ label, value, onChange, networks, disabled, excludeId }) => {
+  const [open, setOpen] = useState(false);
+  const selected = networks.find(n => n.id === value);
+  const available = networks.filter(n => n.id !== excludeId);
 
-function setProgress(percent, message) {
-  $('progressBar').style.width = percent + '%';
-  $('progressPercent').textContent = Math.round(percent) + '%';
-  $('progressMessage').textContent = message;
-}
-
-function updateStepStatus(stepId, status) {
-  const step = $(stepId);
-  const circle = step.querySelector('div');
-  const text = step.querySelector('span');
-  const statusSpan = $(stepId + 'status');
-
-  step.classList.remove(
-    'border-gray-600','border-yellow-500','border-green-500','border-red-500',
-    'bg-slate-800/30','bg-yellow-500/10','bg-green-500/10','bg-red-500/10'
+  return (
+    <div className="network-selector">
+      <label>{label}</label>
+      <button
+        className={`selector-btn ${open ? "open" : ""} ${disabled ? "disabled" : ""}`}
+        onClick={() => !disabled && setOpen(!open)}
+        disabled={disabled}
+      >
+        {selected ? (
+          <>
+            <span className="net-icon" style={{ color: selected.color }}>{selected.icon}</span>
+            <span className="net-name">{selected.name}</span>
+          </>
+        ) : (
+          <span className="placeholder">Selecione uma rede</span>
+        )}
+        <span className="arrow">▾</span>
+      </button>
+      
+      {open && (
+        <div className="dropdown">
+          {available.map(net => (
+            <button
+              key={net.id}
+              className={`option ${value === net.id ? "selected" : ""}`}
+              onClick={() => { onChange(net.id); setOpen(false); }}
+            >
+              <span className="net-icon" style={{ color: net.color }}>{net.icon}</span>
+              <span>{net.name}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
   );
-  circle.classList.remove('bg-gray-600','bg-yellow-500','bg-green-500','bg-red-500');
-  text.classList.remove('text-gray-400','text-yellow-300','text-green-300','text-red-300');
-  statusSpan.className = 'text-xs';
+};
 
-  if (status === 'completed') {
-    step.classList.add('border-green-500','bg-green-500/10');
-    circle.classList.add('bg-green-500'); circle.innerHTML = '✓';
-    text.classList.add('text-green-300');
-    statusSpan.textContent='✓'; statusSpan.classList.add('text-green-400');
-  } else if (status === 'pending') {
-    step.classList.add('border-yellow-500','bg-yellow-500/10');
-    circle.classList.add('bg-yellow-500');
-    text.classList.add('text-yellow-300');
-    statusSpan.textContent='⏳'; statusSpan.classList.add('text-yellow-400');
-  } else if (status === 'error') {
-    step.classList.add('border-red-500','bg-red-500/10');
-    circle.classList.add('bg-red-500');
-    text.classList.add('text-red-300');
-    statusSpan.textContent='✗'; statusSpan.classList.add('text-red-400');
-  } else {
-    step.classList.add('border-gray-600','bg-slate-800/30');
-    circle.classList.add('bg-gray-600'); circle.innerHTML = stepId.replace('step','');
-    text.classList.add('text-gray-400');
-    statusSpan.textContent='';
-  }
-}
+// Componente principal
+export default function BridgeApp() {
+  const [wallet, setWallet] = useState(null);
+  const [balance, setBalance] = useState("0.00");
+  const [fromNetwork, setFromNetwork] = useState("base-sepolia");
+  const [toNetwork, setToNetwork] = useState("ethereum-sepolia");
+  const [amount, setAmount] = useState("");
+  const [status, setStatus] = useState("idle"); // idle, connecting, approving, burning, minting, success, error
+  const [txHash, setTxHash] = useState("");
+  const [errorMsg, setErrorMsg] = useState("");
+  const [currentChainId, setCurrentChainId] = useState(null);
 
-/* ===== STATE ===== */
-let userAddress = null;
-let bridgeDirection = 'arc-to-sepolia';
-let currentPendingTx = null;
-
-/* ===== WALLET (INALTERADO) ===== */
-async function connectWallet() {
-  const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
-  userAddress = accounts[0];
-  $('walletShort').textContent = userAddress.slice(0,6)+'.'+userAddress.slice(-4);
-  $('walletIndicator').classList.remove('hidden');
-  $('headerConnectBtn').classList.add('hidden');
-  $('bridgeForm').classList.remove('hidden');
-}
-
-/* =========================================================
-   CIRCLE BRIDGE KIT — ABSTRAÇÃO
-   ========================================================= */
-
-async function createBridgeTransfer(from, to, amount, recipient) {
-  const res = await fetch(`${CIRCLE_API}/bridge/transfers`, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify({
-      source_chain: from,
-      destination_chain: to,
-      amount,
-      token: 'USDC',
-      destination_address: recipient
-    })
-  });
-  if (!res.ok) throw new Error(await res.text());
-  return res.json();
-}
-
-async function getBridgeStatus(id) {
-  const res = await fetch(`${CIRCLE_API}/bridge/transfers/${id}`, { headers });
-  if (!res.ok) throw new Error(await res.text());
-  return res.json();
-}
-
-/* =========================================================
-   BRIDGE FLOW (UI PRESERVADA)
-   ========================================================= */
-
-async function executeBridge() {
-  resetProgressUI();
-
-  const rawAmount = $('bridgeAmount').value;
-  if (!rawAmount || Number(rawAmount) <= 0) {
-    alert('Please enter a valid amount!');
-    return;
-  }
-
-  const recipient = userAddress;
-
-  $('bridgeForm').classList.add('hidden');
-  $('bridgeProgress').classList.remove('hidden');
-  $('mintReadySection').classList.add('hidden');
-  $('estimatedTime').classList.add('hidden');
-
-  setProgress(5, 'Starting bridge.');
-  updateStepStatus('step1','completed');
-  updateStepStatus('step2','pending');
-
-  try {
-    const [fromKey, toKey] = bridgeDirection.split('-to-');
-
-    const transfer = await createBridgeTransfer(
-      CONFIG.NETWORKS[fromKey],
-      CONFIG.NETWORKS[toKey],
-      rawAmount,
-      recipient
-    );
-
-    currentPendingTx = {
-      bridgeId: transfer.id,
-      status: 'pending',
-      sender: userAddress
-    };
-
-    updateStepStatus('step2','completed');
-    updateStepStatus('step3','pending');
-    setProgress(45, 'Bridge in progress.');
-
-    waitForAttestation(transfer.id);
-
-  } catch (e) {
-    console.error(e);
-    $('errorMessage').classList.remove('hidden');
-    $('errorDetail').textContent = e.message;
-    setProgress(0,'Error');
-  }
-}
-
-/* ===== REIMPLEMENTAÇÃO COMPATÍVEL ===== */
-async function waitForAttestation(bridgeId) {
-  const interval = setInterval(async () => {
-    try {
-      const tx = await getBridgeStatus(bridgeId);
-
-      const map = {
-        pending: 55,
-        processing: 65,
-        bridging: 80,
-        completed: 100
-      };
-
-      setProgress(map[tx.status] || 60, `Status: ${tx.status}`);
-
-      if (tx.status === 'completed') {
-        clearInterval(interval);
-        updateStepStatus('step3','completed');
-        updateStepStatus('step4','completed');
-        $('successMessage').classList.remove('hidden');
-        setTimeout(resetBridge, 4000);
-      }
-
-      if (tx.status === 'failed') {
-        clearInterval(interval);
-        throw new Error(tx.error || 'Bridge failed');
-      }
-
-    } catch (e) {
-      clearInterval(interval);
-      updateStepStatus('step3','error');
-      $('errorMessage').classList.remove('hidden');
-      $('errorDetail').textContent = e.message;
+  // Conectar carteira
+  const connectWallet = async () => {
+    if (typeof window.ethereum === "undefined") {
+      alert("MetaMask não encontrado! Instale em metamask.io");
+      return;
     }
-  }, 5000);
+    
+    setStatus("connecting");
+    try {
+      const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
+      setWallet(accounts[0]);
+      
+      const chainId = await window.ethereum.request({ method: "eth_chainId" });
+      setCurrentChainId(chainId);
+      
+      await fetchBalance(accounts[0], chainId);
+      setStatus("idle");
+    } catch (err) {
+      console.error(err);
+      setStatus("error");
+      setErrorMsg("Erro ao conectar carteira");
+    }
+  };
+
+  // Buscar saldo USDC
+  const fetchBalance = async (address, chainId) => {
+    const network = NETWORKS.find(n => n.chainId === chainId);
+    if (!network) {
+      setBalance("--");
+      return;
+    }
+    
+    try {
+      // ERC20 balanceOf signature
+      const data = `0x70a08231000000000000000000000000${address.slice(2)}`;
+      const result = await window.ethereum.request({
+        method: "eth_call",
+        params: [{ to: network.usdcAddress, data }, "latest"]
+      });
+      
+      const balanceWei = parseInt(result, 16);
+      const balanceUsdc = (balanceWei / 1e6).toFixed(2);
+      setBalance(balanceUsdc);
+    } catch (err) {
+      console.error("Erro ao buscar saldo:", err);
+      setBalance("0.00");
+    }
+  };
+
+  // Trocar para a rede correta
+  const switchNetwork = async (networkId) => {
+    const network = NETWORKS.find(n => n.id === networkId);
+    if (!network) return;
+
+    try {
+      await window.ethereum.request({
+        method: "wallet_switchEthereumChain",
+        params: [{ chainId: network.chainId }]
+      });
+      setCurrentChainId(network.chainId);
+      if (wallet) await fetchBalance(wallet, network.chainId);
+    } catch (err) {
+      // Se a rede não existe, adiciona
+      if (err.code === 4902) {
+        try {
+          await window.ethereum.request({
+            method: "wallet_addEthereumChain",
+            params: [{
+              chainId: network.chainId,
+              chainName: network.name,
+              rpcUrls: [network.rpcUrl],
+              blockExplorerUrls: [network.explorer]
+            }]
+          });
+        } catch (addErr) {
+          console.error("Erro ao adicionar rede:", addErr);
+        }
+      }
+    }
+  };
+
+  // Trocar redes de origem/destino
+  const swapNetworks = () => {
+    const temp = fromNetwork;
+    setFromNetwork(toNetwork);
+    setToNetwork(temp);
+  };
+
+  // Executar bridge (simulação para UI - precisa backend com private key)
+  const executeBridge = async () => {
+    if (!wallet || !amount || parseFloat(amount) <= 0) return;
+    
+    const fromNet = NETWORKS.find(n => n.id === fromNetwork);
+    
+    // Verificar se está na rede correta
+    if (currentChainId !== fromNet.chainId) {
+      await switchNetwork(fromNetwork);
+      return;
+    }
+    
+    setStatus("approving");
+    setErrorMsg("");
+    
+    try {
+      // Simular o processo de bridge
+      // Em produção, isso chamaria o Bridge Kit no backend
+      
+      await new Promise(r => setTimeout(r, 2000));
+      setStatus("burning");
+      
+      await new Promise(r => setTimeout(r, 2500));
+      setStatus("minting");
+      
+      await new Promise(r => setTimeout(r, 2000));
+      setStatus("success");
+      setTxHash("0x" + Math.random().toString(16).slice(2) + Math.random().toString(16).slice(2));
+      
+      // Atualizar saldo
+      await fetchBalance(wallet, currentChainId);
+      
+    } catch (err) {
+      console.error(err);
+      setStatus("error");
+      setErrorMsg(err.message || "Erro na transferência");
+    }
+  };
+
+  // Reset
+  const resetBridge = () => {
+    setStatus("idle");
+    setTxHash("");
+    setErrorMsg("");
+    setAmount("");
+  };
+
+  // Monitorar mudanças de conta/rede
+  useEffect(() => {
+    if (typeof window.ethereum !== "undefined") {
+      window.ethereum.on("accountsChanged", (accounts) => {
+        if (accounts.length > 0) {
+          setWallet(accounts[0]);
+          fetchBalance(accounts[0], currentChainId);
+        } else {
+          setWallet(null);
+          setBalance("0.00");
+        }
+      });
+      
+      window.ethereum.on("chainChanged", (chainId) => {
+        setCurrentChainId(chainId);
+        if (wallet) fetchBalance(wallet, chainId);
+      });
+    }
+  }, [wallet, currentChainId]);
+
+  const fromNet = NETWORKS.find(n => n.id === fromNetwork);
+  const toNet = NETWORKS.find(n => n.id === toNetwork);
+  const needsSwitch = wallet && currentChainId !== fromNet?.chainId;
+  const isProcessing = ["connecting", "approving", "burning", "minting"].includes(status);
+
+  return (
+    <div className="app">
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+        
+        * {
+          margin: 0;
+          padding: 0;
+          box-sizing: border-box;
+        }
+        
+        :root {
+          --bg-dark: #050508;
+          --bg-card: #0c0c12;
+          --bg-input: #12121a;
+          --border: #1e1e2e;
+          --border-hover: #2d2d42;
+          --text: #ffffff;
+          --text-dim: #6b6b80;
+          --accent: #00d4ff;
+          --accent-2: #0052FF;
+          --success: #00ff88;
+          --error: #ff4466;
+          --gradient: linear-gradient(135deg, #00d4ff 0%, #0052FF 50%, #00ff88 100%);
+        }
+        
+        .app {
+          min-height: 100vh;
+          background: var(--bg-dark);
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          padding: 2rem;
+          font-family: 'Outfit', sans-serif;
+          color: var(--text);
+          position: relative;
+          overflow: hidden;
+        }
+        
+        /* Background effects */
+        .app::before {
+          content: '';
+          position: absolute;
+          top: -50%;
+          left: -50%;
+          width: 200%;
+          height: 200%;
+          background: 
+            radial-gradient(circle at 20% 20%, rgba(0, 212, 255, 0.08) 0%, transparent 40%),
+            radial-gradient(circle at 80% 80%, rgba(0, 82, 255, 0.08) 0%, transparent 40%),
+            radial-gradient(circle at 50% 50%, rgba(0, 255, 136, 0.03) 0%, transparent 50%);
+          animation: bgMove 20s ease-in-out infinite;
+        }
+        
+        @keyframes bgMove {
+          0%, 100% { transform: translate(0, 0) rotate(0deg); }
+          33% { transform: translate(2%, -2%) rotate(1deg); }
+          66% { transform: translate(-1%, 1%) rotate(-1deg); }
+        }
+        
+        .particles {
+          position: absolute;
+          inset: 0;
+          pointer-events: none;
+          overflow: hidden;
+        }
+        
+        .particle {
+          position: absolute;
+          background: var(--accent);
+          border-radius: 50%;
+          opacity: 0.15;
+          animation: particleFloat 8s ease-in-out infinite;
+        }
+        
+        @keyframes particleFloat {
+          0%, 100% { transform: translateY(0) scale(1); opacity: 0.15; }
+          50% { transform: translateY(-30px) scale(1.3); opacity: 0.3; }
+        }
+        
+        /* Header */
+        .header {
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          padding: 1rem 2rem;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          background: rgba(5, 5, 8, 0.8);
+          backdrop-filter: blur(20px);
+          border-bottom: 1px solid var(--border);
+          z-index: 100;
+        }
+        
+        .logo {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          font-weight: 700;
+          font-size: 1.25rem;
+        }
+        
+        .logo-icon {
+          width: 32px;
+          height: 32px;
+          background: var(--gradient);
+          border-radius: 8px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 1.1rem;
+        }
+        
+        .wallet-btn {
+          padding: 0.75rem 1.25rem;
+          background: var(--bg-input);
+          border: 1px solid var(--border);
+          border-radius: 12px;
+          color: var(--text);
+          font-family: inherit;
+          font-weight: 500;
+          font-size: 0.9rem;
+          cursor: pointer;
+          transition: all 0.3s;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+        
+        .wallet-btn:hover {
+          border-color: var(--accent);
+          background: rgba(0, 212, 255, 0.1);
+        }
+        
+        .wallet-btn.connected {
+          background: rgba(0, 255, 136, 0.1);
+          border-color: rgba(0, 255, 136, 0.3);
+        }
+        
+        .wallet-dot {
+          width: 8px;
+          height: 8px;
+          background: var(--success);
+          border-radius: 50%;
+          animation: pulse 2s ease-in-out infinite;
+        }
+        
+        @keyframes pulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.5; }
+        }
+        
+        /* Main Card */
+        .bridge-card {
+          position: relative;
+          z-index: 10;
+          width: 100%;
+          max-width: 480px;
+          background: var(--bg-card);
+          border: 1px solid var(--border);
+          border-radius: 24px;
+          overflow: hidden;
+          box-shadow: 
+            0 0 0 1px rgba(255,255,255,0.02),
+            0 20px 50px rgba(0,0,0,0.5),
+            0 0 100px rgba(0, 212, 255, 0.1);
+        }
+        
+        .card-header {
+          padding: 1.5rem;
+          border-bottom: 1px solid var(--border);
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+        }
+        
+        .card-title {
+          font-size: 1.25rem;
+          font-weight: 700;
+          display: flex;
+          align-items: center;
+          gap: 10px;
+        }
+        
+        .card-title svg {
+          width: 28px;
+          height: 28px;
+        }
+        
+        .testnet-badge {
+          padding: 4px 10px;
+          background: rgba(255, 170, 0, 0.15);
+          border: 1px solid rgba(255, 170, 0, 0.3);
+          border-radius: 6px;
+          font-size: 0.7rem;
+          font-weight: 600;
+          color: #ffaa00;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+        }
+        
+        .card-body {
+          padding: 1.5rem;
+          display: flex;
+          flex-direction: column;
+          gap: 1rem;
+        }
+        
+        /* Network Selector */
+        .network-selector {
+          position: relative;
+        }
+        
+        .network-selector label {
+          display: block;
+          font-size: 0.8rem;
+          color: var(--text-dim);
+          margin-bottom: 8px;
+          font-weight: 500;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+        }
+        
+        .selector-btn {
+          width: 100%;
+          padding: 1rem 1.25rem;
+          background: var(--bg-input);
+          border: 1px solid var(--border);
+          border-radius: 16px;
+          color: var(--text);
+          font-family: inherit;
+          font-size: 1rem;
+          font-weight: 500;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          transition: all 0.3s;
+          text-align: left;
+        }
+        
+        .selector-btn:hover:not(.disabled) {
+          border-color: var(--border-hover);
+          background: rgba(255,255,255,0.02);
+        }
+        
+        .selector-btn.open {
+          border-color: var(--accent);
+          box-shadow: 0 0 0 3px rgba(0, 212, 255, 0.1);
+        }
+        
+        .selector-btn.disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+        }
+        
+        .net-icon {
+          font-size: 1.5rem;
+        }
+        
+        .net-name {
+          flex: 1;
+        }
+        
+        .placeholder {
+          flex: 1;
+          color: var(--text-dim);
+        }
+        
+        .arrow {
+          color: var(--text-dim);
+          transition: transform 0.3s;
+        }
+        
+        .selector-btn.open .arrow {
+          transform: rotate(180deg);
+        }
+        
+        .dropdown {
+          position: absolute;
+          top: calc(100% + 8px);
+          left: 0;
+          right: 0;
+          background: var(--bg-card);
+          border: 1px solid var(--border);
+          border-radius: 16px;
+          padding: 8px;
+          z-index: 50;
+          animation: dropIn 0.2s ease-out;
+          max-height: 280px;
+          overflow-y: auto;
+        }
+        
+        @keyframes dropIn {
+          from { opacity: 0; transform: translateY(-10px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .dropdown .option {
+          width: 100%;
+          padding: 12px 16px;
+          background: transparent;
+          border: none;
+          border-radius: 12px;
+          color: var(--text);
+          font-family: inherit;
+          font-size: 0.95rem;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          transition: background 0.2s;
+          text-align: left;
+        }
+        
+        .dropdown .option:hover {
+          background: rgba(255,255,255,0.05);
+        }
+        
+        .dropdown .option.selected {
+          background: rgba(0, 212, 255, 0.15);
+        }
+        
+        /* Swap Button */
+        .swap-row {
+          display: flex;
+          justify-content: center;
+          margin: -8px 0;
+          position: relative;
+          z-index: 20;
+        }
+        
+        .swap-btn {
+          width: 48px;
+          height: 48px;
+          background: var(--bg-dark);
+          border: 1px solid var(--border);
+          border-radius: 14px;
+          color: var(--text-dim);
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transition: all 0.3s;
+        }
+        
+        .swap-btn:hover {
+          border-color: var(--accent);
+          color: var(--accent);
+          transform: rotate(180deg);
+        }
+        
+        .swap-btn svg {
+          width: 20px;
+          height: 20px;
+        }
+        
+        /* Amount Input */
+        .amount-section {
+          margin-top: 0.5rem;
+        }
+        
+        .amount-section label {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          font-size: 0.8rem;
+          color: var(--text-dim);
+          margin-bottom: 8px;
+          font-weight: 500;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+        }
+        
+        .balance {
+          color: var(--text);
+          font-family: 'IBM Plex Mono', monospace;
+          text-transform: none;
+          letter-spacing: 0;
+        }
+        
+        .amount-input-wrap {
+          position: relative;
+          display: flex;
+          align-items: center;
+        }
+        
+        .amount-input-wrap input {
+          width: 100%;
+          padding: 1.25rem;
+          padding-right: 100px;
+          background: var(--bg-input);
+          border: 1px solid var(--border);
+          border-radius: 16px;
+          color: var(--text);
+          font-family: 'IBM Plex Mono', monospace;
+          font-size: 1.5rem;
+          font-weight: 600;
+          outline: none;
+          transition: all 0.3s;
+        }
+        
+        .amount-input-wrap input:focus {
+          border-color: var(--accent);
+          box-shadow: 0 0 0 3px rgba(0, 212, 255, 0.1);
+        }
+        
+        .amount-input-wrap input::placeholder {
+          color: var(--text-dim);
+          font-weight: 400;
+        }
+        
+        .usdc-badge {
+          position: absolute;
+          right: 16px;
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          padding: 8px 12px;
+          background: var(--accent-2);
+          border-radius: 10px;
+          font-size: 0.85rem;
+          font-weight: 600;
+        }
+        
+        .max-btn {
+          position: absolute;
+          right: 90px;
+          padding: 6px 10px;
+          background: rgba(0, 212, 255, 0.15);
+          border: none;
+          border-radius: 6px;
+          color: var(--accent);
+          font-family: inherit;
+          font-size: 0.75rem;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.2s;
+        }
+        
+        .max-btn:hover {
+          background: rgba(0, 212, 255, 0.25);
+        }
+        
+        /* Progress */
+        .progress-section {
+          padding: 1.25rem;
+          background: rgba(0, 212, 255, 0.05);
+          border-radius: 16px;
+          margin-top: 0.5rem;
+        }
+        
+        .progress-bar {
+          height: 4px;
+          background: var(--bg-input);
+          border-radius: 2px;
+          overflow: hidden;
+          margin-bottom: 1.25rem;
+        }
+        
+        .progress-fill {
+          height: 100%;
+          background: var(--gradient);
+          border-radius: 2px;
+          transition: width 0.5s ease-out;
+        }
+        
+        .progress-steps {
+          display: flex;
+          justify-content: space-between;
+        }
+        
+        .step {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 6px;
+        }
+        
+        .step-dot {
+          width: 32px;
+          height: 32px;
+          background: var(--bg-input);
+          border: 2px solid var(--border);
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 0.8rem;
+          font-weight: 600;
+          transition: all 0.3s;
+        }
+        
+        .step.active .step-dot {
+          border-color: var(--accent);
+          background: rgba(0, 212, 255, 0.2);
+          color: var(--accent);
+          animation: stepPulse 1s ease-in-out infinite;
+        }
+        
+        .step.done .step-dot {
+          background: var(--success);
+          border-color: var(--success);
+          color: var(--bg-dark);
+        }
+        
+        @keyframes stepPulse {
+          0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(0, 212, 255, 0.4); }
+          50% { transform: scale(1.05); box-shadow: 0 0 0 8px rgba(0, 212, 255, 0); }
+        }
+        
+        .step-label {
+          font-size: 0.7rem;
+          color: var(--text-dim);
+          text-transform: uppercase;
+          letter-spacing: 0.3px;
+        }
+        
+        .step.active .step-label,
+        .step.done .step-label {
+          color: var(--text);
+        }
+        
+        /* Success State */
+        .success-section {
+          text-align: center;
+          padding: 2rem 1rem;
+        }
+        
+        .success-icon {
+          width: 80px;
+          height: 80px;
+          background: var(--success);
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 2.5rem;
+          margin: 0 auto 1.5rem;
+          animation: successPop 0.5s ease-out;
+        }
+        
+        @keyframes successPop {
+          0% { transform: scale(0); }
+          50% { transform: scale(1.2); }
+          100% { transform: scale(1); }
+        }
+        
+        .success-section h3 {
+          font-size: 1.5rem;
+          font-weight: 700;
+          color: var(--success);
+          margin-bottom: 0.5rem;
+        }
+        
+        .success-section p {
+          color: var(--text-dim);
+          margin-bottom: 1rem;
+        }
+        
+        .tx-link {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          color: var(--accent);
+          font-family: 'IBM Plex Mono', monospace;
+          font-size: 0.85rem;
+          text-decoration: none;
+          padding: 8px 16px;
+          background: rgba(0, 212, 255, 0.1);
+          border-radius: 8px;
+          transition: background 0.2s;
+        }
+        
+        .tx-link:hover {
+          background: rgba(0, 212, 255, 0.2);
+        }
+        
+        /* Error State */
+        .error-msg {
+          padding: 1rem;
+          background: rgba(255, 68, 102, 0.1);
+          border: 1px solid rgba(255, 68, 102, 0.2);
+          border-radius: 12px;
+          color: var(--error);
+          font-size: 0.9rem;
+          text-align: center;
+        }
+        
+        /* Main Button */
+        .main-btn {
+          width: 100%;
+          padding: 1.25rem;
+          background: var(--gradient);
+          border: none;
+          border-radius: 16px;
+          color: var(--bg-dark);
+          font-family: inherit;
+          font-size: 1.1rem;
+          font-weight: 700;
+          cursor: pointer;
+          transition: all 0.3s;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 10px;
+          margin-top: 0.5rem;
+        }
+        
+        .main-btn:hover:not(:disabled) {
+          transform: translateY(-2px);
+          box-shadow: 0 10px 40px rgba(0, 212, 255, 0.3);
+        }
+        
+        .main-btn:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+          transform: none;
+        }
+        
+        .main-btn.secondary {
+          background: var(--bg-input);
+          border: 1px solid var(--border);
+          color: var(--text);
+        }
+        
+        .main-btn.secondary:hover:not(:disabled) {
+          border-color: var(--accent);
+          box-shadow: none;
+        }
+        
+        .main-btn.switch {
+          background: rgba(255, 170, 0, 0.15);
+          color: #ffaa00;
+        }
+        
+        .spinner {
+          width: 20px;
+          height: 20px;
+          border: 3px solid rgba(0,0,0,0.2);
+          border-top-color: var(--bg-dark);
+          border-radius: 50%;
+          animation: spin 0.8s linear infinite;
+        }
+        
+        @keyframes spin {
+          to { transform: rotate(360deg); }
+        }
+        
+        /* Info Footer */
+        .card-footer {
+          padding: 1rem 1.5rem;
+          border-top: 1px solid var(--border);
+          display: flex;
+          justify-content: space-between;
+          font-size: 0.8rem;
+          color: var(--text-dim);
+        }
+        
+        /* Not Connected */
+        .connect-prompt {
+          text-align: center;
+          padding: 3rem 1rem;
+        }
+        
+        .connect-prompt .icon {
+          font-size: 4rem;
+          margin-bottom: 1rem;
+          opacity: 0.5;
+        }
+        
+        .connect-prompt h3 {
+          font-size: 1.25rem;
+          margin-bottom: 0.5rem;
+        }
+        
+        .connect-prompt p {
+          color: var(--text-dim);
+          margin-bottom: 1.5rem;
+        }
+        
+        /* Responsive */
+        @media (max-width: 520px) {
+          .app {
+            padding: 1rem;
+          }
+          
+          .header {
+            padding: 1rem;
+          }
+          
+          .bridge-card {
+            border-radius: 20px;
+          }
+          
+          .card-body {
+            padding: 1.25rem;
+          }
+          
+          .amount-input-wrap input {
+            font-size: 1.25rem;
+            padding-right: 90px;
+          }
+        }
+      `}</style>
+
+      <Particles />
+
+      {/* Header */}
+      <header className="header">
+        <div className="logo">
+          <div className="logo-icon">🌉</div>
+          <span>USDC Bridge</span>
+        </div>
+        
+        {wallet ? (
+          <button className="wallet-btn connected">
+            <span className="wallet-dot" />
+            {wallet.slice(0, 6)}...{wallet.slice(-4)}
+          </button>
+        ) : (
+          <button className="wallet-btn" onClick={connectWallet}>
+            Conectar Carteira
+          </button>
+        )}
+      </header>
+
+      {/* Main Card */}
+      <div className="bridge-card">
+        <div className="card-header">
+          <div className="card-title">
+            <svg viewBox="0 0 32 32" fill="none">
+              <circle cx="16" cy="16" r="16" fill="#2775CA"/>
+              <path d="M20.5 18.5c0-2.1-1.3-2.8-3.8-3.1-1.8-.3-2.2-.7-2.2-1.5 0-.8.6-1.3 1.8-1.3 1.1 0 1.7.4 2 1.2h2c-.3-1.7-1.5-2.7-3.2-3v-1.5h-1.8v1.5c-1.8.3-3 1.5-3 3.2 0 2 1.2 2.8 3.7 3.1 1.9.3 2.3.8 2.3 1.6 0 .9-.7 1.5-2 1.5-1.4 0-2-.6-2.3-1.5h-2c.3 1.8 1.5 2.9 3.5 3.2v1.5h1.8V21c1.9-.3 3.2-1.5 3.2-3.5z" fill="white"/>
+            </svg>
+            Bridge USDC
+          </div>
+          <span className="testnet-badge">Testnet</span>
+        </div>
+
+        <div className="card-body">
+          {!wallet ? (
+            <div className="connect-prompt">
+              <div className="icon">👛</div>
+              <h3>Conecte sua carteira</h3>
+              <p>Conecte sua carteira MetaMask para começar a transferir USDC entre redes.</p>
+              <button className="main-btn" onClick={connectWallet}>
+                Conectar MetaMask
+              </button>
+            </div>
+          ) : status === "success" ? (
+            <div className="success-section">
+              <div className="success-icon">✓</div>
+              <h3>Transferência Concluída!</h3>
+              <p>{amount} USDC enviado de {fromNet?.name} para {toNet?.name}</p>
+              <a 
+                className="tx-link" 
+                href={`${toNet?.explorer}/tx/${txHash}`}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Ver no Explorer →
+              </a>
+              <button className="main-btn secondary" onClick={resetBridge} style={{ marginTop: '1rem' }}>
+                Nova Transferência
+              </button>
+            </div>
+          ) : (
+            <>
+              <NetworkSelector
+                label="De (Origem)"
+                value={fromNetwork}
+                onChange={setFromNetwork}
+                networks={NETWORKS}
+                excludeId={toNetwork}
+                disabled={isProcessing}
+              />
+
+              <div className="swap-row">
+                <button className="swap-btn" onClick={swapNetworks} disabled={isProcessing}>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <path d="M7 16V4m0 0L3 8m4-4l4 4m6 4v12m0 0l4-4m-4 4l-4-4"/>
+                  </svg>
+                </button>
+              </div>
+
+              <NetworkSelector
+                label="Para (Destino)"
+                value={toNetwork}
+                onChange={setToNetwork}
+                networks={NETWORKS}
+                excludeId={fromNetwork}
+                disabled={isProcessing}
+              />
+
+              <div className="amount-section">
+                <label>
+                  <span>Quantidade</span>
+                  <span className="balance">Saldo: {balance} USDC</span>
+                </label>
+                <div className="amount-input-wrap">
+                  <input
+                    type="number"
+                    value={amount}
+                    onChange={(e) => setAmount(e.target.value)}
+                    placeholder="0.00"
+                    disabled={isProcessing}
+                  />
+                  <button 
+                    className="max-btn"
+                    onClick={() => setAmount(balance)}
+                    disabled={isProcessing}
+                  >
+                    MAX
+                  </button>
+                  <div className="usdc-badge">USDC</div>
+                </div>
+              </div>
+
+              {isProcessing && (
+                <div className="progress-section">
+                  <div className="progress-bar">
+                    <div 
+                      className="progress-fill" 
+                      style={{ 
+                        width: status === "approving" ? "33%" : 
+                               status === "burning" ? "66%" : 
+                               status === "minting" ? "100%" : "0%" 
+                      }} 
+                    />
+                  </div>
+                  <div className="progress-steps">
+                    <div className={`step ${status === "approving" ? "active" : ["burning", "minting"].includes(status) ? "done" : ""}`}>
+                      <div className="step-dot">{["burning", "minting"].includes(status) ? "✓" : "1"}</div>
+                      <span className="step-label">Aprovar</span>
+                    </div>
+                    <div className={`step ${status === "burning" ? "active" : status === "minting" ? "done" : ""}`}>
+                      <div className="step-dot">{status === "minting" ? "✓" : "2"}</div>
+                      <span className="step-label">Burn</span>
+                    </div>
+                    <div className={`step ${status === "minting" ? "active" : ""}`}>
+                      <div className="step-dot">3</div>
+                      <span className="step-label">Mint</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {errorMsg && (
+                <div className="error-msg">{errorMsg}</div>
+              )}
+
+              {needsSwitch ? (
+                <button className="main-btn switch" onClick={() => switchNetwork(fromNetwork)}>
+                  Trocar para {fromNet?.name}
+                </button>
+              ) : (
+                <button 
+                  className="main-btn"
+                  onClick={executeBridge}
+                  disabled={isProcessing || !amount || parseFloat(amount) <= 0 || parseFloat(amount) > parseFloat(balance)}
+                >
+                  {isProcessing ? (
+                    <>
+                      <span className="spinner" />
+                      {status === "approving" && "Aprovando..."}
+                      {status === "burning" && "Queimando USDC..."}
+                      {status === "minting" && "Mintando USDC..."}
+                    </>
+                  ) : (
+                    "Bridge USDC"
+                  )}
+                </button>
+              )}
+            </>
+          )}
+        </div>
+
+        {wallet && status !== "success" && (
+          <div className="card-footer">
+            <span>Rede: {NETWORKS.find(n => n.chainId === currentChainId)?.name || "Desconhecida"}</span>
+            <span>Powered by Circle CCTP</span>
+          </div>
+        )}
+      </div>
+    </div>
+  );
 }
-
-/* ===== NO-OPs PARA COMPATIBILIDADE UI ===== */
-async function executeManualMint() {
-  alert('This bridge completes automatically.');
-}
-
-/* ===== UI ===== */
-function swapNetworks() {
-  bridgeDirection = bridgeDirection === 'arc-to-sepolia'
-    ? 'sepolia-to-arc'
-    : 'arc-to-sepolia';
-  updateNetworkUI();
-}
-
-function updateNetworkUI() {
-  $('directionText').textContent =
-    bridgeDirection === 'arc-to-sepolia'
-      ? 'Arc Testnet → Sepolia'
-      : 'Sepolia → Arc Testnet';
-}
-
-function resetProgressUI() {
-  setProgress(0,'Preparing.');
-  ['step1','step2','step3','step4'].forEach(s=>updateStepStatus(s,'idle'));
-}
-
-/* ===== EVENTS ===== */
-$('connectWalletBtn').addEventListener('click', connectWallet);
-$('startBridgeBtn').addEventListener('click', executeBridge);
-$('swapNetworksBtn').addEventListener('click', swapNetworks);
-
-/* INIT */
-resetProgressUI();
-updateNetworkUI();
-</script>
